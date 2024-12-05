@@ -68,8 +68,11 @@ public class TweetServiceImpl implements TweetService {
                 //sinceId = foundUser.getData().getMostRecentTweetId();
                 log.info("sinceId of {} is {}", username, sinceId);
 
+//                Get2UsersIdTweetsResponse result = apiInstance.tweets().usersIdTweets(userId).exclude(exclude).maxResults(maxResults)
+//                        .tweetFields(tweetFields).sinceId(sinceId).mediaFields(mediaFields).expansions(expansions).execute();
+
                 Get2UsersIdTweetsResponse result = apiInstance.tweets().usersIdTweets(userId).exclude(exclude).maxResults(maxResults)
-                        .tweetFields(tweetFields).sinceId(sinceId).mediaFields(mediaFields).expansions(expansions).execute();
+                        .tweetFields(tweetFields).mediaFields(mediaFields).expansions(expansions).execute();
 
 
                 List<Tweet> rawTweets = result.getData();
@@ -140,7 +143,7 @@ public class TweetServiceImpl implements TweetService {
 //                            String formattedMessage = "<b>" + user.getName() + "</b>\n" + message + "\n\n" + "<i>" + tweetUrl + "</i>";
                             String formattedMessage = formatHtmlCaption(user.getName(), message, tweetUrl);
                             log.info("Sending text to Telegram: {}", formattedMessage);
-                            telegramSender.sendMessage(formattedMessage); // Send plain text
+                            telegramSender.sendMessageWithButton(formattedMessage, tweetUrl); // Send plain text
                         }
 
                         tweetRepository.save(tweet);
@@ -221,6 +224,11 @@ public class TweetServiceImpl implements TweetService {
         return null;
     }
 
+    @Override
+    public List<io.blocksquare.twitterapi.app.domain.Tweet> getTweetsByAuthorId(String authorId) {
+        return tweetRepository.findByAuthorIdOrderByCreatedAtDesc(authorId);
+    }
+
     private String formatHtmlCaption(String name, String message, String url) {
         return String.format(
                 "<b>%s\n\n</b>%s\n\n<i>%s</i>",
@@ -228,6 +236,11 @@ public class TweetServiceImpl implements TweetService {
                 escapeHtml(message),
                 escapeHtml(url)
         );
+    }
+
+    @Override
+    public List<io.blocksquare.twitterapi.app.domain.Tweet> getAllTweets() {
+        return tweetRepository.findAll();
     }
 
     private String escapeHtml(String text) {

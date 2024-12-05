@@ -6,10 +6,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.List;
 
 public interface TweetRepository extends JpaRepository<Tweet, String> {
 
     @Query(value = "SELECT t.id FROM tweet t WHERE t.author_id = :userId ORDER BY t.created_at DESC LIMIT 1", nativeQuery = true)
     String findMostRecentTweetId(@Param("userId") String userId);
+
+    List<Tweet> findByAuthorIdOrderByCreatedAtDesc(String authorId);
 
 }

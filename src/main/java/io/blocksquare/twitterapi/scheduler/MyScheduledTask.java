@@ -18,7 +18,7 @@ public class MyScheduledTask {
         System.out.println("Task executed at: " + System.currentTimeMillis());
     }
 
-    @Scheduled(fixedRate = 600000) //Runs every 10 minutues
+    @Scheduled(fixedRate = 900000) //Runs every 10 minutues
     public void fetchTweets() {
         try {
             log.info("Starting scheduled task to fetch tweets");

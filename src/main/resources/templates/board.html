@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Board</title>
+    <link href="/css/board.css" rel="stylesheet">
+</head>
+<body>
+<div class="main">
+    <div class="board-header">
+        <!-- Iterate over all users and assign id as class -->
+        <th:block th:each="user : ${users}">
+            <div class="user" th:class="${user.id} + ' user'">
+                <img th:src="${user.profilePic}" th:alt="'profile picture of ' + ${user.username}">
+                <div th:text="${user.name}"></div>
+            </div>
+        </th:block>
+    </div>
+
+    <div class="board-main">
+        <!-- Iterate over tweets and assign author_id as class -->
+        <th:block th:each="tweet : ${tweets}">
+            <div class="tweet-wrapper">
+                <div class="tweet" th:class="${tweet.author.id} + ' tweet'">
+                    <p class="text" th:text="${tweet.text}">Tweet Text</p>
+                    <p class="createdAt" th:text="${#dates.format(tweet.createdAt, 'yyyy-MM-dd HH:mm:ss')}">Created At</p>
+                </div>
+                <!-- Create 'users.size() - 1' empty divs using a for loop -->
+                <th:block th:each="i : ${#numbers.sequence(0, users.size() - 2)}">
+                    <div class="tweet"></div>
+                </th:block>
+            </div>
+        </th:block>
+    </div>
+</div>
+
+<script src="/js/board.js"></script>
+</body>
+</html>

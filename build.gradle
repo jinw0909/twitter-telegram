@@ -36,6 +36,8 @@ dependencies {
 //    implementation 'com.twitter:twitter-api-java-sdk:1.2.4'
     implementation 'com.twitter:twitter-api-java-sdk:2.0.3'
 
+//    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.mysql:mysql-connector-j'
     annotationProcessor 'org.projectlombok:lombok'

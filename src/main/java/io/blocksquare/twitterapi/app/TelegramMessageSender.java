@@ -111,5 +111,74 @@ public class TelegramMessageSender {
     }
 
 
+//    public void sendMessageWithButton(String message, String tweetUrl) {
+//        try {
+//            //Encode the message
+//            String encodedMessage = URLEncoder.encode(message, StandardCharsets.UTF_8);
+//            String encodedTweetUrl = URLEncoder.encode(tweetUrl, StandardCharsets.UTF_8);
+//
+//            String inlineKeyboardJson = String.format(
+//                    "[[{\"text\": \"View Tweet\", \"url\": \"%s\"}]]", encodedTweetUrl
+//            );
+//
+//            String url = String.format(
+//                    "https://api.telegram.org/bot%s/sendMessage?chat_id=%s&text=%s&disable_web_page_preview=%b&parse_mode=HTML&reply_markup=%s",
+//                    botToken,
+//                    chatId,
+//                    encodedMessage,
+//                    disablePreview,
+//                    inlineKeyboardJson
+//            );
+//            log.info("url: {}", url);
+//
+//            //Create HTTP client
+//            HttpClient client = HttpClient.newHttpClient();
+//            HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
+//
+//            //Send request
+//            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+//            log.info("Response: " + response.body());
+//        } catch (Exception e) {
+//            log.error("failed to send message from TelegramMessageSender", e);
+//            e.printStackTrace();
+//        }
+//    }
+
+    public void sendMessageWithButton(String message, String tweetUrl) {
+        try {
+            // Create the inline keyboard JSON (raw JSON format, not URL-encoded)
+            String inlineKeyboardJson = String.format(
+                    "{\"inline_keyboard\": [[{\"text\": \"View Tweet\", \"url\": \"%s\"}]]}",
+//                    "{\"inline_keyboard\": [[{\"text\": \"View Tweet\", \"web_app\": {\"url\": \"%s\"}}]]}",
+                    tweetUrl
+            );
+            // Create the JSON body for the POST request
+            String requestBody = String.format(
+                    "{\"chat_id\": \"%s\", \"text\": \"%s\", \"disable_web_page_preview\": %b, \"parse_mode\": \"HTML\", \"reply_markup\": %s}",
+                    chatId,
+                    message,  // You can directly use the message, don't URL encode it
+                    disablePreview,
+                    inlineKeyboardJson  // Raw JSON string for the reply_markup
+            );
+
+            // Create HTTP client
+            HttpClient client = HttpClient.newHttpClient();
+
+            // Build the POST request
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.telegram.org/bot" + botToken + "/sendMessage"))
+                    .header("Content-Type", "application/json")  // Set content type to JSON
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))  // Set the JSON body
+                    .build();
+
+            // Send the request
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            log.info("Response: " + response.body());
+
+        } catch (Exception e) {
+            log.error("Failed to send message with inline button", e);
+        }
+    }
+
 
 }
