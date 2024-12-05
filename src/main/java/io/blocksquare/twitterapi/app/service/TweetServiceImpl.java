@@ -68,11 +68,11 @@ public class TweetServiceImpl implements TweetService {
                 //sinceId = foundUser.getData().getMostRecentTweetId();
                 log.info("sinceId of {} is {}", username, sinceId);
 
-//                Get2UsersIdTweetsResponse result = apiInstance.tweets().usersIdTweets(userId).exclude(exclude).maxResults(maxResults)
-//                        .tweetFields(tweetFields).sinceId(sinceId).mediaFields(mediaFields).expansions(expansions).execute();
-
                 Get2UsersIdTweetsResponse result = apiInstance.tweets().usersIdTweets(userId).exclude(exclude).maxResults(maxResults)
-                        .tweetFields(tweetFields).mediaFields(mediaFields).expansions(expansions).execute();
+                        .tweetFields(tweetFields).sinceId(sinceId).mediaFields(mediaFields).expansions(expansions).execute();
+
+//                Get2UsersIdTweetsResponse result = apiInstance.tweets().usersIdTweets(userId).exclude(exclude).maxResults(maxResults)
+//                        .tweetFields(tweetFields).mediaFields(mediaFields).expansions(expansions).execute();
 
 
                 List<Tweet> rawTweets = result.getData();
