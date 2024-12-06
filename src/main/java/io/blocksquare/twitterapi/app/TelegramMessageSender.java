@@ -110,40 +110,6 @@ public class TelegramMessageSender {
         }
     }
 
-
-//    public void sendMessageWithButton(String message, String tweetUrl) {
-//        try {
-//            //Encode the message
-//            String encodedMessage = URLEncoder.encode(message, StandardCharsets.UTF_8);
-//            String encodedTweetUrl = URLEncoder.encode(tweetUrl, StandardCharsets.UTF_8);
-//
-//            String inlineKeyboardJson = String.format(
-//                    "[[{\"text\": \"View Tweet\", \"url\": \"%s\"}]]", encodedTweetUrl
-//            );
-//
-//            String url = String.format(
-//                    "https://api.telegram.org/bot%s/sendMessage?chat_id=%s&text=%s&disable_web_page_preview=%b&parse_mode=HTML&reply_markup=%s",
-//                    botToken,
-//                    chatId,
-//                    encodedMessage,
-//                    disablePreview,
-//                    inlineKeyboardJson
-//            );
-//            log.info("url: {}", url);
-//
-//            //Create HTTP client
-//            HttpClient client = HttpClient.newHttpClient();
-//            HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
-//
-//            //Send request
-//            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-//            log.info("Response: " + response.body());
-//        } catch (Exception e) {
-//            log.error("failed to send message from TelegramMessageSender", e);
-//            e.printStackTrace();
-//        }
-//    }
-
     public void sendMessageWithButton(String message, String tweetUrl) {
         try {
             // Create the inline keyboard JSON (raw JSON format, not URL-encoded)
@@ -179,6 +145,56 @@ public class TelegramMessageSender {
             log.error("Failed to send message with inline button", e);
         }
     }
+
+    public void sendImagesWithButton(String caption, List<String> mediaUrls, String buttonUrl) {
+        if (mediaUrls == null || mediaUrls.isEmpty()) {
+            log.warn("No media URLs to send.");
+            return;
+        }
+
+        try {
+            // Step 1: Send the media group
+            String url = String.format("https://api.telegram.org/bot%s/sendMediaGroup", botToken);
+
+            StringBuilder mediaGroupBuilder = new StringBuilder("[");
+            for (int i = 0; i < mediaUrls.size(); i++) {
+                String mediaUrl = mediaUrls.get(i);
+                if (i > 0) {
+                    mediaGroupBuilder.append(",");
+                }
+                // Subsequent media items do not have a caption
+                mediaGroupBuilder.append(String.format(
+                        "{\"type\":\"photo\",\"media\":\"%s\"}",
+                        mediaUrl
+                ));
+            }
+            mediaGroupBuilder.append("]");
+
+            String requestBody = String.format(
+                    "{\"chat_id\":\"%s\",\"media\":%s}",
+                    chatId,
+                    mediaGroupBuilder.toString()
+            );
+
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                    .build();
+
+            HttpResponse<String> mediaGroupResponse = client.send(request, HttpResponse.BodyHandlers.ofString());
+            log.info("Response (Media Group): {}", mediaGroupResponse.body());
+
+            // Step 2: Send a separate message with the button
+            sendMessageWithButton(caption, buttonUrl);
+
+        } catch (Exception e) {
+            log.error("Failed to send images with button from TelegramMessageSender", e);
+        }
+    }
+
+
 
 
 }

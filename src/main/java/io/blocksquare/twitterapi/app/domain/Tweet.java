@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.List;
 
 @Entity
 @Table(name = "tweet")
@@ -30,5 +31,8 @@ public class Tweet {
 
     @Column(name = "referenced_tweet_id", nullable = true)
     private String referencedTweetId;
+
+    @OneToMany(mappedBy = "tweet", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Media> media;
 
 }

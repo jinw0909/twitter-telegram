@@ -10,10 +10,7 @@ import io.blocksquare.twitterapi.app.TelegramMessageSender;
 import io.blocksquare.twitterapi.app.domain.ReferencedTweet;
 import io.blocksquare.twitterapi.app.domain.ReferencedUser;
 import io.blocksquare.twitterapi.app.domain.User;
-import io.blocksquare.twitterapi.app.repository.ReferencedTweetRepository;
-import io.blocksquare.twitterapi.app.repository.ReferencedUserRepository;
-import io.blocksquare.twitterapi.app.repository.TweetRepository;
-import io.blocksquare.twitterapi.app.repository.UserRepository;
+import io.blocksquare.twitterapi.app.repository.*;
 import io.blocksquare.twitterapi.config.ExtendedMedia;
 import io.swagger.annotations.Api;
 import jakarta.annotation.PostConstruct;
@@ -24,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -36,6 +34,7 @@ public class TweetServiceImpl implements TweetService {
     private final UserRepository userRepository;
     private final ReferencedUserRepository referencedUserRepository;
     private final ReferencedTweetRepository referencedTweetRepository;
+    private final MediaRepository mediaRepository;
 
     @Value("${twitter.app-only-access-token}")
     private String APP_ONLY_ACCESS_TOKEN;
@@ -68,12 +67,11 @@ public class TweetServiceImpl implements TweetService {
                 //sinceId = foundUser.getData().getMostRecentTweetId();
                 log.info("sinceId of {} is {}", username, sinceId);
 
-                Get2UsersIdTweetsResponse result = apiInstance.tweets().usersIdTweets(userId).exclude(exclude).maxResults(maxResults)
-                        .tweetFields(tweetFields).sinceId(sinceId).mediaFields(mediaFields).expansions(expansions).execute();
-
 //                Get2UsersIdTweetsResponse result = apiInstance.tweets().usersIdTweets(userId).exclude(exclude).maxResults(maxResults)
-//                        .tweetFields(tweetFields).mediaFields(mediaFields).expansions(expansions).execute();
+//                        .tweetFields(tweetFields).sinceId(sinceId).mediaFields(mediaFields).expansions(expansions).execute();
 
+                Get2UsersIdTweetsResponse result = apiInstance.tweets().usersIdTweets(userId).exclude(exclude).maxResults(maxResults)
+                        .tweetFields(tweetFields).mediaFields(mediaFields).expansions(expansions).execute();
 
                 List<Tweet> rawTweets = result.getData();
 
@@ -88,6 +86,22 @@ public class TweetServiceImpl implements TweetService {
                             int urlIndex = message.lastIndexOf("https://");
                             if (urlIndex != -1) {
                                 message = message.substring(0, urlIndex).trim();
+                            }
+                        }
+
+                        // Check if attachments and mediaKeys exist
+                        if (rawTweet.getAttachments() != null && rawTweet.getAttachments().getMediaKeys() != null) {
+                            List<String> mediaKeys = rawTweet.getAttachments().getMediaKeys();
+                            int mediaKeyCount = mediaKeys.size();
+
+                            if (mediaKeyCount > 0) {
+                                // Iterate backwards to remove URLs corresponding to the number of media keys
+                                for (int i = 0; i < mediaKeyCount; i++) {
+                                    int urlIndex = message.lastIndexOf("https://");
+                                    if (urlIndex != -1) {
+                                        message = message.substring(0, urlIndex).trim();
+                                    }
+                                }
                             }
                         }
 
@@ -106,8 +120,10 @@ public class TweetServiceImpl implements TweetService {
                             tweet.setReferencedTweetId(null); // Explicitly set to null if no referenced tweets
                         }
 
+                        tweetRepository.save(tweet);
+
                         // Extract the media key
-                        List<String> mediaUrls = new ArrayList<>(); // Holds either previewImageUrl or photo URL
+                        List<io.blocksquare.twitterapi.app.domain.Media> mediaEntities = new ArrayList<>();
                         if (rawTweet.getAttachments() != null && rawTweet.getAttachments().getMediaKeys() != null) {
                             List<String> mediaKeys = rawTweet.getAttachments().getMediaKeys();
 
@@ -116,37 +132,53 @@ public class TweetServiceImpl implements TweetService {
                                 for (String mediaKey : mediaKeys) {
                                     for (Media media : result.getIncludes().getMedia()) {
                                         if (mediaKey.equals(media.getMediaKey())) {
+                                            io.blocksquare.twitterapi.app.domain.Media mediaEntity = new io.blocksquare.twitterapi.app.domain.Media();
+                                            mediaEntity.setMediaKey(mediaKey);
+                                            mediaEntity.setTweet(tweet);
                                             if ("video".equals(media.getType()) && media instanceof Video video) {
                                                 if (video.getPreviewImageUrl() != null) {
-                                                    mediaUrls.add(video.getPreviewImageUrl().toString());
+                                                    mediaEntity.setPreviewImageUrl(video.getPreviewImageUrl().toString());
+                                                    mediaEntity.setType("video");
                                                 }
                                             } else if ("photo".equals(media.getType()) && media instanceof Photo photo) {
                                                 if (photo.getUrl() != null) {
-                                                    mediaUrls.add(photo.getUrl().toString());
+                                                    mediaEntity.setUrl(photo.getUrl().toString());
+                                                    mediaEntity.setType("photo");
                                                 }
                                             }
+                                            mediaEntities.add(mediaEntity);
                                         }
                                     }
                                 }
                             }
                         }
 
+                        if (!mediaEntities.isEmpty()) {
+                            mediaRepository.saveAll(mediaEntities);
+                        }
+                        // Extract URLs directly from mediaEntities for Telegram
+                        List<String> mediaUrls = mediaEntities.stream()
+                                .map(media -> media.getUrl() != null ? media.getUrl() : media.getPreviewImageUrl())
+                                .filter(Objects::nonNull)
+                                .toList();
+
+
                         // Send message to Telegram
                         if (!mediaUrls.isEmpty()) {
 //                            String caption = String.format("**%s**\n%s\n\n%s", user.getName(), message, tweetUrl);
 //                            String caption = "<b>" + user.getName() + "</b>\n" + message + "\n\n" + "<i>" + tweetUrl + "</i>";
-                            String caption = formatHtmlCaption(user.getName(), message, tweetUrl);
+                            String caption = formatHtmlCaption(user.getName(), message, tweetUrl, mediaUrls);
                             log.info("Sending image to Telegram: caption={}, mediaUrl={}", caption, mediaUrls);
-                            telegramSender.sendImages(caption, mediaUrls); // Send image with caption
+//                            telegramSender.sendImages(caption, mediaUrls); // Send image with caption
+                            telegramSender.sendImagesWithButton(caption, mediaUrls, tweetUrl); // Send image with caption with button
                         } else {
 //                            String formattedMessage = String.format("**%s**\n%s\n\n%s", user.getName(), message, tweetUrl);
 //                            String formattedMessage = "<b>" + user.getName() + "</b>\n" + message + "\n\n" + "<i>" + tweetUrl + "</i>";
-                            String formattedMessage = formatHtmlCaption(user.getName(), message, tweetUrl);
+                            String formattedMessage = formatHtmlCaption(user.getName(), message, tweetUrl, new ArrayList<>());
                             log.info("Sending text to Telegram: {}", formattedMessage);
-                            telegramSender.sendMessageWithButton(formattedMessage, tweetUrl); // Send plain text
+//                            telegramSender.sendMessage(formattedMessage); // Send plain text
+                            telegramSender.sendMessageWithButton(formattedMessage, tweetUrl); // Send plain text with button
                         }
-
-                        tweetRepository.save(tweet);
 
                     });
 
@@ -229,12 +261,20 @@ public class TweetServiceImpl implements TweetService {
         return tweetRepository.findByAuthorIdOrderByCreatedAtDesc(authorId);
     }
 
-    private String formatHtmlCaption(String name, String message, String url) {
+    private String formatHtmlCaption(String name, String message, String url, List<String> mediaUrls) {
+
+        String mediaUrlsLine = mediaUrls.isEmpty()
+                ? ""
+                : "<i>MEDIA " + mediaUrls.stream().map(urlStr -> String.format("[ %s ]", urlStr)).collect(Collectors.joining(", ")) + "</i>";
+
+        String tweetUrlLine = String.format("TWEET <i>[ %s ]</i>", url);
+
         return String.format(
-                "<b>%s\n\n</b>%s\n\n<i>%s</i>",
-                escapeHtml(name),
-                escapeHtml(message),
-                escapeHtml(url)
+                "<b>%s\n\n</b>%s\n\n%s\n<i>%s</i>",
+                name,
+                message,
+                mediaUrlsLine,
+                tweetUrlLine
         );
     }
 
